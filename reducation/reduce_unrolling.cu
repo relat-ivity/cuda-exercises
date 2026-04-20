@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #define BLOCK_SIZE 256
+#define UNROLLING_SIZE 8
 
 #define CHECK_CUDA(call) \
 do { \
@@ -12,18 +13,33 @@ do { \
     } \
 } while(0)
 
-__global__ void reduce(const float *input, float *output, int n) {
+__global__ void reduceUnrolling8(const float *input, float *output, int n) {
     __shared__ float idata[BLOCK_SIZE]; 
     unsigned tid = threadIdx.x;
-    unsigned idx = blockIdx.x * blockDim.x + threadIdx.x;
-    idata[tid] = (idx < n) ? input[idx] : 0.0f;
+    unsigned idx = blockIdx.x * blockDim.x * UNROLLING_SIZE + threadIdx.x;
+
+    float unrolling_result = 0.0f;
+    for(int i = 0; i < UNROLLING_SIZE; i++) {
+        int unrolling_index = idx + i * blockDim.x;
+        unrolling_result += (unrolling_index < n) ? input[unrolling_index] : 0.0f;
+    }
+    idata[tid] = unrolling_result;
     __syncthreads();
 
-    for (int i = blockDim.x / 2; i > 0; i /= 2) {
+    for (int i = blockDim.x / 2; i > 32; i /= 2) {
         if (tid < i) {
             idata[tid] += idata[tid + i]; 
         }
         __syncthreads();
+    }
+    if (tid < 32) {
+        volatile float *vdata = idata;
+        vdata[tid] += vdata[tid + 32];
+        vdata[tid] += vdata[tid + 16];
+        vdata[tid] += vdata[tid + 8];
+        vdata[tid] += vdata[tid + 4];
+        vdata[tid] += vdata[tid + 2];
+        vdata[tid] += vdata[tid + 1];
     }
     if (tid == 0) { 
         atomicAdd(output, idata[0]);
@@ -32,8 +48,8 @@ __global__ void reduce(const float *input, float *output, int n) {
 
 // input, output are device pointers
 extern "C" void solve(const float* input, float* output, int N) {
-    int grid_size = (N - 1) / BLOCK_SIZE + 1;
-    reduce<<<grid_size, BLOCK_SIZE>>>(input, output, N);
+    int grid_size = (N - 1) / (UNROLLING_SIZE * BLOCK_SIZE) + 1;
+    reduceUnrolling8<<<grid_size, BLOCK_SIZE>>>(input, output, N);
 }
 
 int main() {
