@@ -9,7 +9,7 @@ __global__ void matrix_transpose_kernel(const float* input, float* output, int M
     int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
     // 按行写入shared memory
-    __shared__ float sdata[BLOCK_SIZE][BLOCK_SIZE];
+    __shared__ float sdata[BLOCK_SIZE][BLOCK_SIZE + 1]; // padding解决bank conflict
     if(ix < N && iy < M) sdata[ty][tx] = input[iy * N + ix];
     __syncthreads();
 
