@@ -3,12 +3,6 @@
 
 #define FETCH_FLOAT4(pointer) (*reinterpret_cast<float4*>(&(pointer)))
 
-constexpr int BM = 128;
-constexpr int BN = 128;
-constexpr int BK = 8;
-constexpr int TM = 8;
-constexpr int TN = 8;
-
 template <int BM, int BN, int BK, int TM, int TN>
 __global__ void matrix_multiplication_kernel_float4(float* A, float* B, float* C, int M, int K, int N) {
     unsigned int tx = threadIdx.x;
@@ -173,6 +167,12 @@ __global__ void matrix_multiplication_kernel(float* A, float* B, float* C, int M
 
 // A, B, C are device pointers (i.e. pointers to memory on the GPU)
 extern "C" void solve(float* A, float* B, float* C, int M, int K, int N) {
+    constexpr int BM = 128;
+    constexpr int BN = 128;
+    constexpr int BK = 8;
+    constexpr int TM = 8;
+    constexpr int TN = 8;
+
     dim3 threadsPerBlock(BM / TM, BN / TN);
     dim3 blocksPerGrid((N - 1) / BN + 1,
                        (M - 1) / BM + 1);

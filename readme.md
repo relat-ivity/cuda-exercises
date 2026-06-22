@@ -203,6 +203,10 @@ for k in range(K):
 
 如果每个k循环我们把N个B矩阵的`b[k][j]`和一个A矩阵的`a[i][k]`放在寄存器，就可以优化
 
+### cutlass切块方法
+
+![alt text](docs/cutlass.png)
+
 ## GPU知识
 
 ### CUDA Graph
